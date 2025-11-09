@@ -44,13 +44,12 @@ Frontend runs on `http://localhost:3000`
 ## How to Use
 
 1. **Upload** your PowerPoint file (.pptx)
-2. **Wait** for layouts to load from your file (automatic)
-3. **Select** a layout from the dropdown - these are YOUR presentation's actual layouts!
-4. **Fill in** content (title optional, content required, image optional)
-5. **Choose** position (0 = beginning, default = end)
-6. **Click** "Add Slide" to add it to your presentation
-7. **Repeat** steps 3-6 to add more slides
-8. **Download** your complete presentation when ready
+2. **Select** a layout from the dropdown - these are YOUR presentation's slide master layouts!
+3. **Fill in** content (title, content, and image as per the choosen layout)
+4. **Choose** position (0 = beginning, default = end)
+5. **Click** "Add Slide" to add it to your presentation
+6. **Repeat** steps 2-5 to add more slides
+7. **Download** your complete presentation when ready
 
 ## Features
 
@@ -63,14 +62,6 @@ Frontend runs on `http://localhost:3000`
 - **Content Validation** - Real-time warnings for overflow issues
 - **Health Monitoring** - Shows when backend is online/offline
 
-### User Experience
-- Clean, modern, professional UI
-- Blue and white color scheme
-- Fully responsive (mobile & desktop)
-- Custom styled scrollbars
-- Loading states and progress indicators
-- Helpful error messages
-- Success notifications
 
 ## Technical Improvement
 ### What Was Fixed
@@ -201,5 +192,3 @@ slideMaker/
 5. **Frontend errors?** → Check browser console (F12)
 
 ---
-
-**Made with ❤️ for international PowerPoint users everywhere! 🌍**
