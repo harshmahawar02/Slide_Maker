@@ -2,16 +2,14 @@
 
 A web application to add custom slides to PowerPoint presentations while **preserving theme, headers, footers, and working with ANY language or custom template**.
 
-## 🎯 Major Update - Now Works Internationally!
-
 **Critical Fix Applied:** The app now uses your presentation's **actual layout names** instead of guessing. This means:
-- ✅ Works with presentations in **any language** (Spanish, French, German, Chinese, Arabic, etc.)
-- ✅ Works with **custom corporate templates** with unique layout names
-- ✅ Shows you the **exact layouts from your file** - no assumptions!
+- Works with presentations in **any language** (Spanish, French, German, Chinese, Arabic, etc.)
+- Works with **custom corporate templates** with unique layout names
+- Shows you the **exact layouts from your file** - no assumptions!
 
-## 🚀 Quick Start
+## Quick Start
 
-### ⚡ Easy Setup (Windows)
+### Easy Setup (Windows)
 
 **One-time setup:**
 ```bash
@@ -25,7 +23,7 @@ start.bat
 ```
 This opens both servers in separate terminal windows automatically!
 
-### 💻 Manual Setup
+### Manual Setup
 
 **Backend:**
 ```bash
@@ -43,7 +41,7 @@ npm start
 ```
 Frontend runs on `http://localhost:3000`
 
-## 📖 How to Use
+## How to Use
 
 1. **Upload** your PowerPoint file (.pptx)
 2. **Wait** for layouts to load from your file (automatic)
@@ -54,28 +52,27 @@ Frontend runs on `http://localhost:3000`
 7. **Repeat** steps 3-6 to add more slides
 8. **Download** your complete presentation when ready
 
-## ✨ Features
+## Features
 
 ### Core Functionality
-- 🌍 **International Support** - Works with any language
-- 📋 **Dynamic Layout Detection** - Uses your file's actual layouts
-- 🎨 **Theme Preservation** - Matches backgrounds, fonts, colors, logos
-- 📍 **Flexible Positioning** - Insert slides anywhere
-- 🔄 **Multi-Slide Workflow** - Add multiple slides before downloading
-- ⚠️ **Content Validation** - Real-time warnings for overflow issues
-- 💚 **Health Monitoring** - Shows when backend is online/offline
+- **International Support** - Works with any language
+- **Dynamic Layout Detection** - Uses your file's actual layouts
+- **Theme Preservation** - Matches backgrounds, fonts, colors, logos
+- **Flexible Positioning** - Insert slides anywhere
+- **Multi-Slide Workflow** - Add multiple slides before downloading
+- **Content Validation** - Real-time warnings for overflow issues
+- **Health Monitoring** - Shows when backend is online/offline
 
 ### User Experience
-- ✅ Clean, modern, professional UI
-- ✅ Blue and white color scheme
-- ✅ Fully responsive (mobile & desktop)
-- ✅ Custom styled scrollbars
-- ✅ Loading states and progress indicators
-- ✅ Helpful error messages
-- ✅ Success notifications
+- Clean, modern, professional UI
+- Blue and white color scheme
+- Fully responsive (mobile & desktop)
+- Custom styled scrollbars
+- Loading states and progress indicators
+- Helpful error messages
+- Success notifications
 
-## 🔧 Technical Improvements
-
+## Technical Improvement
 ### What Was Fixed
 1. **Layout Detection (CRITICAL)** - Now reads actual layout names from uploaded file
 2. **International Support** - Eliminated hardcoded English-only layout names
@@ -96,7 +93,7 @@ Frontend runs on `http://localhost:3000`
 5. Download → Complete presentation ready
 ```
 
-## 📚 Documentation
+## Documentation
 
 Comprehensive documentation in the `docs/` folder:
 - **ARCHITECTURE.md** - System design, data flow, and technical decisions
@@ -105,12 +102,12 @@ Comprehensive documentation in the `docs/` folder:
 - **TROUBLESHOOTING.md** - Common issues and solutions
 - **LOGO_REPLACEMENT_GUIDE.md** - How to customize the logo
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 **Frontend:** React 19, CSS3, Fetch API  
 **Backend:** Flask 3.0, python-pptx 0.6.23, Flask-CORS
 
-## 📝 Important Notes
+## Important Notes
 
 ### File Requirements
 - Format: `.pptx` only (not `.ppt`)
@@ -134,32 +131,32 @@ The app warns you if:
 
 These are **warnings**, not errors - you can still proceed!
 
-## 🌟 Why This Update Matters
+## Why This Update Matters
 
 ### Before (Broken for many users):
 ```
 App: "Looking for 'Title and Content' layout..."
 User's Spanish file: Has "Título y contenido"
-App: "Layout not found!" ❌
+App: "Layout not found!"
 ```
 
 ### After (Works for everyone):
 ```
 App: "What layouts are in your file?"
 Backend: "Título y contenido, Diapositiva en blanco, ..."
-App: "Here are your layouts, pick one!" ✅
+App: "Here are your layouts, pick one!"
 User: Selects "Título y contenido"
-App: Uses exact name - works perfectly! ✅
+App: Uses exact name - works perfectly!
 ```
 
-## 🚨 Known Limitations
+## Known Limitations
 
 1. **Slide Positioning** - Uses internal python-pptx API (may break in future updates)
 2. **Single Slide Master** - Only uses first slide master from presentation
 3. **No Preview** - Cannot preview slide before adding
 4. **No Undo** - Must re-upload to start over (or use Reset button)
 
-## 🎓 For Developers
+## For Developers
 
 ### Project Structure
 ```
@@ -174,7 +171,7 @@ slideMaker/
 ├── frontend/
 │   ├── src/
 │   │   ├── components/
-│   │   │   ├── SlideCreator.js      # Main container
+│   │   │   ├── SlideCreator.js       # Main container
 │   │   │   ├── LayoutSelector.js     # Dynamic layout dropdown
 │   │   │   ├── SlideForm.js          # Content form
 │   │   │   └── SlideCreator.css      # Styles
@@ -195,7 +192,7 @@ slideMaker/
 
 ---
 
-## 🆘 Need Help?
+## Need Help?
 
 1. **Common issues?** → Check `docs/TROUBLESHOOTING.md`
 2. **How it works?** → Read `docs/ARCHITECTURE.md`

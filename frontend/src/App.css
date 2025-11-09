@@ -1,61 +1,161 @@
+/* App.css - SAP Design System */
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
 .App {
-  text-align: center;
-  background-color: #f0f8ff;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  color: #003366;
+  background: linear-gradient(135deg, #F5F5F5 0%, #E9ECEF 100%);
+  color: #32363A;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
 }
 
 .App-header {
-  background-color: #005a9c;
+  background: linear-gradient(180deg, #0A6ED1 0%, #3b64b6 100%);
+  padding: 0;
+  color: #FFFFFF;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+}
+
+.header-content {
+  max-width: 1600px;
+  margin: 0 auto;
   padding: 20px 40px;
-  color: white;
-  width: 100%;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-  box-sizing: border-box;
+  gap: 20px;
+}
+
+.header-title {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: right;
+  margin-left: auto;
 }
 
 .App-header h1 {
   margin: 0;
-  font-size: 1.8rem;
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: -0.5px;
 }
 
-.logo {
-  font-size: 1.5rem;
-  font-weight: bold;
-  background-color: rgba(255, 255, 255, 0.2);
-  padding: 8px 16px;
-  border-radius: 8px;
+.header-subtitle {
+  font-size: 0.875rem;
+  font-weight: 400;
+  opacity: 0.9;
 }
 
-main {
+.sap-logo {
+  display: flex;
+  align-items: center;
+}
+
+.sap-logo img {
+  height: 40px;
+  width: auto;
+}
+
+.App-main {
   flex: 1;
   width: 100%;
-  max-width: 1200px;
+  max-width: 1600px;
   margin: 0 auto;
-  padding: 40px 20px;
-  box-sizing: border-box;
+  padding: 40px;
+}
+
+.App-footer {
+  background: #434242;
+  color: #FFFFFF;
+  padding: 16px 0;
+  border-top: 3px solid #F0AB00;
+}
+
+.footer-content {
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 0 40px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.footer-text {
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+}
+
+.footer-icon {
+  font-size: 1.25rem;
+  font-weight: bold;
+  color: #F0AB00;
+}
+
+/* Responsive */
+@media (max-width: 1400px) {
+  .App-main {
+    max-width: 1200px;
+    padding: 32px;
+  }
+}
+
+@media (max-width: 1200px) {
+  .App-main {
+    padding: 24px;
+  }
+  
+  .header-content,
+  .footer-content {
+    padding: 0 24px;
+  }
 }
 
 @media (max-width: 768px) {
-  .App-header {
-    padding: 15px 20px;
-  }
-  
   .App-header h1 {
-    font-size: 1.4rem;
+    font-size: 1.5rem;
   }
   
-  .logo {
-    font-size: 1.2rem;
-    padding: 6px 12px;
+  .header-subtitle {
+    font-size: 0.75rem;
   }
   
-  main {
-    padding: 20px 15px;
+  .header-content {
+    padding: 16px 20px;
+  }
+  
+  .sap-logo svg {
+    width: 50px;
+    height: 25px;
+  }
+  
+  .sap-logo text {
+    font-size: 20px;
+  }
+  
+  .App-main {
+    padding: 20px;
+  }
+  
+  .footer-content {
+    padding: 0 20px;
+    flex-direction: column;
+    gap: 8px;
+    text-align: center;
+  }
+  
+  .footer-text {
+    font-size: 0.6875rem;
   }
 }

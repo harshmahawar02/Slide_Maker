@@ -1,0 +1,24 @@
+{
+  "name": "slidemaker",
+  "version": "1.0.0",
+  "description": "A web application to add custom slides to PowerPoint presentations while **preserving theme, headers, footers, and working with ANY language or custom template**.",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kira666-sentient/slideMaker.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/kira666-sentient/slideMaker/issues"
+  },
+  "homepage": "https://github.com/kira666-sentient/slideMaker#readme"
+}

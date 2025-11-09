@@ -4,6 +4,8 @@ from pptx import Presentation
 from pptx.util import Inches, Pt
 from pptx.enum.shapes import PP_PLACEHOLDER
 from pptx.enum.text import PP_ALIGN
+from pptx.enum.dml import MSO_THEME_COLOR
+from pptx.dml.color import RGBColor
 import io
 import traceback
 import os
@@ -15,6 +17,35 @@ CORS(app, expose_headers='Content-Disposition')
 MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
 MAX_IMAGE_SIZE = 10 * 1024 * 1024  # 10MB
 ALLOWED_IMAGE_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'bmp'}
+
+# Predefined layouts that will be matched against the uploaded PPTX
+PREDEFINED_LAYOUTS = {
+    'title_content': {
+        'name': 'Title and Content',
+        'keywords': ['title', 'content', 'body', 'text', 'only'],
+        'has_image': False,
+        'content_boxes': 1
+    },
+    'title_two_content': {
+        'name': 'Title and Two Content',
+        'keywords': ['two', 'comparison', 'columns', 'divided'],
+        'has_image': False,
+        'content_boxes': 2
+    },
+    'title_image_content': {
+        'name': 'Title Image and Content',
+        'keywords': ['picture', 'image', 'content', 'caption', 'photo', 'text'],
+        'has_image': True,
+        'content_boxes': 1
+    },
+    'title_image': {
+        'name': 'Title and Image',
+        'keywords': ['picture', 'image', 'photo', 'blank'],
+        'has_image': True,
+        'content_boxes': 0,
+        'prefer_simple': True  # Prefer simpler layouts
+    }
+}
 
 def validate_file_size(file_storage, max_size, file_type="File"):
     """Validate file size before processing"""
@@ -36,33 +67,189 @@ def validate_image_format(filename):
     ext = filename.rsplit('.', 1)[1].lower()
     return ext in ALLOWED_IMAGE_EXTENSIONS
 
-def find_layout_by_name(slide_master, layout_name):
-    """Find layout by exact name match"""
+def find_layout_by_type(slide_master, layout_type):
+    """
+    Find the best matching layout based on predefined layout type.
+    Uses keyword matching and structure analysis.
+    Excludes decorative/branded layouts like 'Mango', 'Cover', etc.
+    """
+    if layout_type not in PREDEFINED_LAYOUTS:
+        return None
+    
+    layout_config = PREDEFINED_LAYOUTS[layout_type]
+    keywords = layout_config['keywords']
+    
+    # Exclude patterns - layouts to avoid
+    exclude_patterns = ['mango', 'cover', 'branded', 'anvil', 'thank', 'section', 'divider']
+    
+    # First try: Exact name match (excluding branded layouts)
     for layout in slide_master.slide_layouts:
-        if layout.name == layout_name:
+        layout_name_lower = layout.name.lower()
+        
+        # Skip if matches exclude pattern
+        if any(pattern in layout_name_lower for pattern in exclude_patterns):
+            continue
+            
+        if layout_config['name'].lower() == layout_name_lower:
+            print(f"✓ Exact match found: {layout.name}")
             return layout
     
-    # If exact match fails, try case-insensitive partial match
-    layout_name_lower = layout_name.lower()
-    for layout in slide_master.slide_layouts:
-        if layout_name_lower in layout.name.lower():
-            return layout
+    # Second try: Keyword match (excluding branded layouts)
+    best_match = None
+    best_score = 0
     
-    # Last resort: return first layout with content placeholders
     for layout in slide_master.slide_layouts:
-        has_body = False
+        layout_name_lower = layout.name.lower()
+        
+        # Skip if matches exclude pattern
+        if any(pattern in layout_name_lower for pattern in exclude_patterns):
+            continue
+        
+        score = 0
+        
+        # Count keyword matches
+        for keyword in keywords:
+            if keyword in layout_name_lower:
+                score += 1
+        
+        if score > best_score:
+            best_score = score
+            best_match = layout
+    
+    if best_match and best_score > 0:
+        print(f"✓ Keyword match found: {best_match.name} (score: {best_score})")
+        return best_match
+    
+    # Third try: Structure-based matching (excluding branded layouts)
+    best_structure_match = None
+    best_structure_score = 0
+    
+    for layout in slide_master.slide_layouts:
+        layout_name_lower = layout.name.lower()
+        
+        # Skip if matches exclude pattern
+        if any(pattern in layout_name_lower for pattern in exclude_patterns):
+            continue
+        
+        has_title = False
+        body_count = 0
+        has_picture = False
+        placeholder_count = 0
+        
         for shape in layout.placeholders:
-            if shape.placeholder_format.type in [PP_PLACEHOLDER.BODY, PP_PLACEHOLDER.OBJECT]:
-                has_body = True
-                break
-        if has_body:
+            placeholder_count += 1
+            try:
+                phf = shape.placeholder_format
+                if phf.type == PP_PLACEHOLDER.TITLE:
+                    has_title = True
+                elif phf.type in [PP_PLACEHOLDER.BODY, PP_PLACEHOLDER.OBJECT]:
+                    body_count += 1
+                elif phf.type == PP_PLACEHOLDER.PICTURE:
+                    has_picture = True
+            except:
+                continue
+        
+        # Calculate structure score (prefer simpler layouts with fewer placeholders)
+        structure_score = 0
+        
+        # Match based on structure
+        if layout_type == 'title_content':
+            if has_title and body_count >= 1 and not has_picture:
+                structure_score = 100 - placeholder_count  # Prefer fewer placeholders
+        elif layout_type == 'title_two_content':
+            if has_title and body_count >= 2:
+                structure_score = 100 - placeholder_count
+        elif layout_type == 'title_image_content':
+            if has_title and body_count >= 1 and has_picture:
+                structure_score = 100 - placeholder_count
+        elif layout_type == 'title_image':
+            if has_title and has_picture and body_count == 0:
+                # For title+image, strongly prefer layouts with NO body placeholders
+                structure_score = 200 - placeholder_count
+            elif has_title and has_picture:
+                # Accept layouts with body, but score them lower
+                structure_score = 50 - placeholder_count
+        
+        if structure_score > best_structure_score:
+            best_structure_score = structure_score
+            best_structure_match = layout
+    
+    if best_structure_match:
+        print(f"✓ Structure match found: {best_structure_match.name} (score: {best_structure_score})")
+        return best_structure_match
+    
+    # Fallback: Use the most appropriate default layout
+    print(f"! No perfect match, using fallback for {layout_type}")
+    for layout in slide_master.slide_layouts:
+        has_title = False
+        has_body = False
+        
+        for shape in layout.placeholders:
+            try:
+                phf = shape.placeholder_format
+                if phf.type == PP_PLACEHOLDER.TITLE:
+                    has_title = True
+                elif phf.type in [PP_PLACEHOLDER.BODY, PP_PLACEHOLDER.OBJECT]:
+                    has_body = True
+            except:
+                continue
+        
+        if has_title and has_body:
+            print(f"✓ Fallback layout: {layout.name}")
             return layout
     
-    # Ultimate fallback: return first layout
-    if len(slide_master.slide_layouts) > 0:
-        return slide_master.slide_layouts[0]
+    # Ultimate fallback: return first non-blank layout
+    if len(slide_master.slide_layouts) > 1:
+        print(f"✓ Using second layout as ultimate fallback")
+        return slide_master.slide_layouts[1]
     
-    return None
+    return slide_master.slide_layouts[0] if len(slide_master.slide_layouts) > 0 else None
+
+@app.route('/api/debug-layouts', methods=['POST'])
+def debug_layouts():
+    """Debug endpoint to see all available layouts in the uploaded template"""
+    try:
+        if 'file' not in request.files:
+            return jsonify({'error': 'No PowerPoint file uploaded'}), 400
+        
+        file = request.files['file']
+        
+        if file.filename == '':
+            return jsonify({'error': 'No file selected'}), 400
+        
+        try:
+            prs = Presentation(file)
+        except Exception as e:
+            return jsonify({'error': f'Invalid PowerPoint file: {str(e)}'}), 400
+        
+        slide_master = prs.slide_masters[0]
+        layouts_info = []
+        
+        for idx, layout in enumerate(slide_master.slide_layouts):
+            placeholders = []
+            for shape in layout.placeholders:
+                try:
+                    phf = shape.placeholder_format
+                    placeholders.append({
+                        'type': str(phf.type),
+                        'name': shape.name
+                    })
+                except:
+                    pass
+            
+            layouts_info.append({
+                'index': idx,
+                'name': layout.name,
+                'placeholders': placeholders
+            })
+        
+        return jsonify({
+            'total_layouts': len(slide_master.slide_layouts),
+            'layouts': layouts_info
+        }), 200
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/add-slide', methods=['POST'])
 def add_slide():
@@ -86,18 +273,24 @@ def add_slide():
             return jsonify({'error': str(e)}), 400
             
         # Get form data
-        layout_name = request.form.get('layout', '').strip()
+        layout_type = request.form.get('layout', '').strip()
         title = request.form.get('title', '').strip()
         text = request.form.get('text', '').strip()
+        text2 = request.form.get('text2', '').strip()  # For two-content layout
         image = request.files.get('image')
         
-        # Validate layout name provided
-        if not layout_name:
-            return jsonify({'error': 'Layout name is required'}), 400
+        # Validate layout type provided
+        if not layout_type or layout_type not in PREDEFINED_LAYOUTS:
+            return jsonify({'error': 'Valid layout type is required'}), 400
         
-        # Validate required content
-        if not text:
-            return jsonify({'error': 'Content text is required'}), 400
+        layout_config = PREDEFINED_LAYOUTS[layout_type]
+        
+        # Validate required content based on layout
+        if layout_config['content_boxes'] > 0 and not text:
+            return jsonify({'error': 'Content text is required for this layout'}), 400
+        
+        if layout_config['content_boxes'] == 2 and not text2:
+            return jsonify({'error': 'Second content box is required for this layout'}), 400
         
         # Validate image if provided
         if image:
@@ -122,22 +315,24 @@ def add_slide():
         except Exception as e:
             return jsonify({'error': f'Invalid or corrupted PowerPoint file: {str(e)}'}), 400
 
-        # Find the layout by exact name
+        # Find the layout by type
         slide_master = prs.slide_masters[0]
         
         if len(slide_master.slide_layouts) == 0:
             return jsonify({'error': 'Presentation has no slide layouts'}), 400
         
-        slide_layout = find_layout_by_name(slide_master, layout_name)
+        slide_layout = find_layout_by_type(slide_master, layout_type)
         
         if not slide_layout:
-            return jsonify({'error': f'Could not find layout: {layout_name}'}), 400
+            return jsonify({'error': f'Could not find suitable layout for: {layout_config["name"]}'}), 400
 
         print(f"\n=== Adding Slide ===")
-        print(f"Requested Layout: {layout_name}")
+        print(f"Requested Layout Type: {layout_type}")
         print(f"Using Layout: {slide_layout.name}")
         print(f"Title: {title}")
-        print(f"Text: {text[:50]}..." if len(text) > 50 else f"Text: {text}")
+        print(f"Text: {text[:50]}..." if text and len(text) > 50 else f"Text: {text}")
+        if text2:
+            print(f"Text2: {text2[:50]}..." if len(text2) > 50 else f"Text2: {text2}")
 
         # Validate and adjust position
         total_slides = len(prs.slides)
@@ -148,6 +343,16 @@ def add_slide():
 
         # Create new slide
         new_slide = prs.slides.add_slide(slide_layout)
+        
+        # Remove background to make it plain white
+        try:
+            background = new_slide.background
+            fill = background.fill
+            fill.solid()
+            fill.fore_color.rgb = RGBColor(255, 255, 255)  # White background
+            print(f"✓ Background set to plain white")
+        except Exception as e:
+            print(f"! Could not modify background: {str(e)}")
         
         # Move slide to correct position if needed
         if position < total_slides:
@@ -185,9 +390,58 @@ def add_slide():
             except Exception as e:
                 print(f"! Could not set title: {str(e)}")
 
-        # SET CONTENT - SIMPLE AND CLEAN
-        if text:
-            # Try to find content placeholder
+        # SET CONTENT - Handle different layout types
+        if layout_type == 'title_two_content' and text and text2:
+            # Handle two content boxes
+            content_placeholders = []
+            for shape in new_slide.placeholders:
+                try:
+                    phf = shape.placeholder_format
+                    if phf.type in [PP_PLACEHOLDER.BODY, PP_PLACEHOLDER.OBJECT]:
+                        content_placeholders.append(shape)
+                except:
+                    continue
+            
+            if len(content_placeholders) >= 2:
+                # Use first two placeholders
+                try:
+                    tf1 = content_placeholders[0].text_frame
+                    tf1.clear()
+                    p1 = tf1.paragraphs[0]
+                    p1.text = text
+                    p1.alignment = PP_ALIGN.LEFT
+                    print(f"✓ Content 1: '{text[:50]}...'")
+                    
+                    tf2 = content_placeholders[1].text_frame
+                    tf2.clear()
+                    p2 = tf2.paragraphs[0]
+                    p2.text = text2
+                    p2.alignment = PP_ALIGN.LEFT
+                    print(f"✓ Content 2: '{text2[:50]}...'")
+                except Exception as e:
+                    print(f"! Error setting two-content: {str(e)}")
+            else:
+                # Fallback: Create two textboxes
+                try:
+                    # Left textbox
+                    txBox1 = new_slide.shapes.add_textbox(Inches(0.5), Inches(1.8), Inches(4.2), Inches(5))
+                    tf1 = txBox1.text_frame
+                    p1 = tf1.paragraphs[0]
+                    p1.text = text
+                    p1.alignment = PP_ALIGN.LEFT
+                    
+                    # Right textbox
+                    txBox2 = new_slide.shapes.add_textbox(Inches(5.2), Inches(1.8), Inches(4.2), Inches(5))
+                    tf2 = txBox2.text_frame
+                    p2 = tf2.paragraphs[0]
+                    p2.text = text2
+                    p2.alignment = PP_ALIGN.LEFT
+                    print(f"✓ Two content boxes created (fallback)")
+                except Exception as e:
+                    print(f"! Error creating two textboxes: {str(e)}")
+        
+        elif text:
+            # Handle single content box
             content_added = False
             placeholder_found = False
             
@@ -230,7 +484,7 @@ def add_slide():
                     continue
             
             if not placeholder_found:
-                print(f"⚠️ No placeholders found in slide layout")
+                print(f"No placeholders found in slide layout")
             
             # If no placeholder found or failed, create text box
             if not content_added:
@@ -262,26 +516,42 @@ def add_slide():
             # Try to find image placeholder first
             for shape in new_slide.placeholders:
                 try:
-                    if shape.placeholder_format.type == PP_PLACEHOLDER.PICTURE:
-                        # Found picture placeholder
-                        shape.insert_picture(io.BytesIO(image.read()))
-                        print(f"✓ Image added to placeholder")
+                    phf = shape.placeholder_format
+                    if phf.type == PP_PLACEHOLDER.PICTURE:
+                        # Found picture placeholder - use correct method
+                        image.seek(0)
+                        image_stream = io.BytesIO(image.read())
+                        
+                        # For picture placeholders, we need to delete it and add image in its place
+                        left = shape.left
+                        top = shape.top
+                        width = shape.width
+                        height = shape.height
+                        
+                        # Remove the placeholder
+                        sp = shape.element
+                        sp.getparent().remove(sp)
+                        
+                        # Add the picture in the same position
+                        new_slide.shapes.add_picture(image_stream, left, top, width, height)
+                        
+                        print(f"✓ Image added to picture placeholder position")
                         image_added = True
                         break
                 except Exception as e:
                     print(f"! Could not use picture placeholder: {str(e)}")
                     continue
             
-            # If no placeholder, add as regular image
+            # If no placeholder, add as regular image on the right side
             if not image_added:
                 try:
                     image.seek(0)  # Reset file pointer
                     image_stream = io.BytesIO(image.read())
                     
-                    # Calculate position based on slide dimensions
+                    # Position image on the right side of the slide
                     left = Inches(6.5)
-                    top = Inches(2)
-                    max_height = Inches(4)
+                    top = Inches(1.5)
+                    max_height = Inches(5)
                     max_width = Inches(3)
                     
                     # Add image with size constraints
@@ -289,9 +559,11 @@ def add_slide():
                     
                     # Ensure width doesn't exceed bounds
                     if pic.width > max_width:
+                        aspect_ratio = pic.height / pic.width
                         pic.width = max_width
+                        pic.height = int(max_width * aspect_ratio)
                     
-                    print(f"✓ Image added as shape")
+                    print(f"✓ Image added as shape on right side")
                 except Exception as e:
                     print(f"! Image error: {str(e)}")
                     # Don't fail the entire operation if image fails
@@ -332,9 +604,9 @@ def add_slide():
 def health_check():
     return jsonify({'status': 'healthy', 'message': 'SlideMaker API is running'}), 200
 
-@app.route('/api/get-layouts', methods=['POST'])
-def get_layouts():
-    """Get available slide layouts from uploaded presentation"""
+@app.route('/api/get-slide-count', methods=['POST'])
+def get_slide_count():
+    """Get the number of slides in uploaded presentation"""
     try:
         if 'file' not in request.files:
             return jsonify({'error': 'No PowerPoint file uploaded'}), 400
@@ -353,28 +625,13 @@ def get_layouts():
         except Exception as e:
             return jsonify({'error': f'Invalid PowerPoint file: {str(e)}'}), 400
         
-        if len(prs.slide_masters) == 0:
-            return jsonify({'error': 'No slide masters found in presentation'}), 400
-        
-        # Get layouts from first slide master
-        slide_master = prs.slide_masters[0]
-        layouts = []
-        
-        for idx, layout in enumerate(slide_master.slide_layouts):
-            layouts.append({
-                'index': idx,
-                'name': layout.name,
-                'type': 'custom'
-            })
-        
         return jsonify({
             'total_slides': len(prs.slides),
-            'layouts': layouts,
-            'message': f'Found {len(layouts)} layouts in presentation'
+            'filename': file.filename
         }), 200
         
     except Exception as e:
-        print(f"Error in get_layouts: {str(e)}")
+        print(f"Error in get_slide_count: {str(e)}")
         print(traceback.format_exc())
         return jsonify({'error': f'Server error: {str(e)}'}), 500
 

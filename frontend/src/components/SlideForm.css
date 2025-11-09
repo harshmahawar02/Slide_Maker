@@ -1,0 +1,235 @@
+/* SlideForm.css - SAP Design System */
+
+.slide-form-new {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.form-section {
+    background: #FFFFFF;
+    border-radius: 8px;
+    padding: 24px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    border: 1px solid #E5E5E5;
+}
+
+.form-section-title {
+    margin: 0 0 20px 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: #0A6ED1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group:last-child {
+    margin-bottom: 0;
+}
+
+.form-label {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #4a5158;
+}
+
+.text-input,
+.textarea-input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #89919A;
+    border-radius: 4px;
+    font-size: 0.875rem;
+    font-family: inherit;
+    background: #FFFFFF;
+    color: #32363A;
+    transition: all 0.2s ease;
+    box-sizing: border-box;
+}
+
+.text-input:focus,
+.textarea-input:focus {
+    outline: none;
+    border-color: #0A6ED1;
+    box-shadow: 0 0 0 1px #0A6ED1;
+}
+
+.text-input:disabled,
+.textarea-input:disabled {
+    background: #F5F5F5;
+    color: #89919A;
+    cursor: not-allowed;
+}
+
+.textarea-input {
+    resize: vertical;
+    min-height: 100px;
+    line-height: 1.5;
+}
+
+.file-input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 2px dashed #89919A;
+    border-radius: 4px;
+    background: #FAFAFA;
+    cursor: pointer;
+    font-size: 0.875rem;
+    transition: all 0.2s ease;
+}
+
+.file-input:hover:not(:disabled) {
+    border-color: #0A6ED1;
+    background: #F0F8FF;
+}
+
+.file-input:disabled {
+    background: #F5F5F5;
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.file-info {
+    margin-top: 12px;
+    padding: 12px;
+    background: #E7F3FF;
+    border: 1px solid #0854A0;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.file-name {
+    font-size: 0.875rem;
+    color: #32363A;
+    font-weight: 500;
+}
+
+.slide-count {
+    font-size: 0.75rem;
+    color: #0854A0;
+    font-weight: 600;
+    background: #FFFFFF;
+    padding: 4px 12px;
+    border-radius: 12px;
+}
+
+.form-hint {
+    display: block;
+    margin-top: 6px;
+    font-size: 0.75rem;
+    color: #89919A;
+    line-height: 1.4;
+}
+
+.image-preview {
+    margin-top: 12px;
+    padding: 8px;
+    background: #FAFAFA;
+    border: 1px solid #E5E5E5;
+    border-radius: 4px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.image-preview img {
+    max-width: 200px;
+    max-height: 200px;
+    object-fit: contain;
+    border-radius: 4px;
+}
+
+.submit-button {
+    width: 100%;
+    padding: 14px 24px;
+    background: linear-gradient(180deg, #0A6ED1 0%, #0854A0 100%);
+    color: #FFFFFF;
+    border: none;
+    border-radius: 4px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 8px rgba(10, 110, 209, 0.3);
+}
+
+.submit-button:hover:not(:disabled) {
+    background: linear-gradient(180deg, #0854A0 0%, #0A6ED1 100%);
+    box-shadow: 0 4px 12px rgba(10, 110, 209, 0.4);
+    transform: translateY(-1px);
+}
+
+.submit-button:active:not(:disabled) {
+    transform: translateY(0);
+}
+
+.submit-button:disabled {
+    background: #D9D9D9;
+    color: #89919A;
+    cursor: not-allowed;
+    box-shadow: none;
+    transform: none;
+}
+
+.alert {
+    padding: 12px 16px;
+    border-radius: 4px;
+    margin-bottom: 16px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    border-left: 4px solid;
+}
+
+.alert-error {
+    background: #FFEAEA;
+    color: #B00020;
+    border-left-color: #B00020;
+}
+
+.alert-success {
+    background: #E7F8EC;
+    color: #107E3E;
+    border-left-color: #107E3E;
+}
+
+.alert-warning {
+    background: #FFF3CD;
+    color: #856404;
+    border-left-color: #F0AB00;
+}
+
+/* Responsive */
+@media (max-width: 1200px) {
+    .form-section {
+        padding: 20px;
+    }
+}
+
+@media (max-width: 768px) {
+    .slide-form-new {
+        gap: 16px;
+    }
+    
+    .form-section {
+        padding: 16px;
+    }
+    
+    .form-section-title {
+        font-size: 0.9375rem;
+    }
+    
+    .image-preview img {
+        max-width: 150px;
+        max-height: 150px;
+    }
+}

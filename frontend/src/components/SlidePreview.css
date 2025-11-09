@@ -1,0 +1,190 @@
+/* SlidePreview.css - SAP Design System */
+
+.slide-preview-container {
+    background: #FFFFFF;
+    border-radius: 8px;
+    padding: 24px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    border: 1px solid #E5E5E5;
+}
+
+.preview-header {
+    margin: 0 0 20px 0;
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: #0A6ED1;
+}
+
+.preview-wrapper {
+    background: #F5F5F5;
+    border-radius: 4px;
+    padding: 16px;
+    min-height: 300px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.preview-slide {
+    background: #FFFFFF;
+    width: 100%;
+    max-width: 640px;
+    aspect-ratio: 16 / 9;
+    border: 2px solid #D9D9D9;
+    border-radius: 4px;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+.preview-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #0A6ED1;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 3px solid #F0AB00;
+    word-wrap: break-word;
+}
+
+.preview-content {
+    flex: 1;
+    font-size: 0.875rem;
+    color: #32363A;
+    line-height: 1.6;
+    overflow: hidden;
+    word-wrap: break-word;
+    white-space: pre-wrap;
+}
+
+.preview-two-content {
+    flex: 1;
+    display: flex;
+    gap: 16px;
+}
+
+.preview-content-box {
+    flex: 1;
+    font-size: 0.875rem;
+    color: #32363A;
+    line-height: 1.6;
+    padding: 12px;
+    background: #FAFAFA;
+    border: 1px solid #E5E5E5;
+    border-radius: 4px;
+    overflow: hidden;
+    word-wrap: break-word;
+    white-space: pre-wrap;
+}
+
+.preview-image-content {
+    flex: 1;
+    display: flex;
+    gap: 16px;
+}
+
+.preview-image-box {
+    width: 40%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #FFFFFF;
+    border: 1px solid #E5E5E5;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.preview-image-box img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.preview-image-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    color: #89919A;
+    font-size: 0.875rem;
+}
+
+.preview-image-placeholder span:first-child {
+    font-size: 2.5rem;
+}
+
+.preview-image-only {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #FFFFFF;
+    border: 1px solid #E5E5E5;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.preview-image-only img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+}
+
+.preview-placeholder {
+    text-align: center;
+    color: #89919A;
+    font-size: 1rem;
+}
+
+.preview-hint {
+    margin: 12px 0 0 0;
+    font-size: 0.75rem;
+    color: #89919A;
+    text-align: center;
+    font-style: italic;
+}
+
+/* Responsive */
+@media (max-width: 1200px) {
+    .preview-wrapper {
+        min-height: 250px;
+    }
+    
+    .preview-slide {
+        padding: 16px;
+    }
+    
+    .preview-title {
+        font-size: 1.25rem;
+    }
+    
+    .preview-content,
+    .preview-content-box {
+        font-size: 0.75rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .preview-wrapper {
+        min-height: 200px;
+    }
+    
+    .preview-slide {
+        padding: 12px;
+    }
+    
+    .preview-title {
+        font-size: 1rem;
+        margin-bottom: 12px;
+    }
+    
+    .preview-image-content {
+        flex-direction: column;
+    }
+    
+    .preview-image-box {
+        width: 100%;
+        min-height: 120px;
+    }
+}

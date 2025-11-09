@@ -1,15 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
+import './SlideForm.css';
 
-const SlideForm = ({ layout, onSlideAdded, onFileUploaded, initialFile, slideCount }) => {
+const SlideForm = ({ layout, onSlideAdded, onContentChange, initialFile, slideCount, totalSlides }) => {
     const [title, setTitle] = useState('');
     const [text, setText] = useState('');
+    const [text2, setText2] = useState('');
     const [image, setImage] = useState(null);
+    const [imagePreview, setImagePreview] = useState(null);
     const [file, setFile] = useState(initialFile);
-    const [position, setPosition] = useState(slideCount);
+    const [position, setPosition] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
-    const [warnings, setWarnings] = useState([]);
     
     // Abort controller for canceling requests
     const abortControllerRef = useRef(null);
@@ -21,13 +23,12 @@ const SlideForm = ({ layout, onSlideAdded, onFileUploaded, initialFile, slideCou
             if (abortControllerRef.current) {
                 abortControllerRef.current.abort();
             }
+            // Cleanup image preview
+            if (imagePreview) {
+                URL.revokeObjectURL(imagePreview);
+            }
         };
-    }, []);
-
-    // Update position when slideCount changes
-    useEffect(() => {
-        setPosition(slideCount);
-    }, [slideCount]);
+    }, [imagePreview]);
 
     // Update file when initialFile changes
     useEffect(() => {
@@ -36,79 +37,50 @@ const SlideForm = ({ layout, onSlideAdded, onFileUploaded, initialFile, slideCou
         }
     }, [initialFile]);
     
-    // Handle file selection
-    const handleFileChange = (e) => {
-        const selectedFile = e.target.files[0];
-        if (selectedFile) {
-            setFile(selectedFile);
-            // Notify parent to fetch layouts
-            if (onFileUploaded) {
-                onFileUploaded(selectedFile);
-            }
-        }
-    };
-
-    // Content validation for overflow warnings
-    const validateContent = () => {
-        const newWarnings = [];
-        const MAX_TITLE_LENGTH = 100;
-        const MAX_TEXT_LENGTH = 500;
-        const MAX_TEXT_LINES = 15;
-        const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
-        const MIN_IMAGE_SIZE = 1024; // 1KB minimum
-
-        if (title && title.length > MAX_TITLE_LENGTH) {
-            newWarnings.push(`⚠️ Title is too long (${title.length} chars). May exceed slide width. Recommended: ${MAX_TITLE_LENGTH} chars or less.`);
-        }
-        
-        if (title && title.trim().length === 0) {
-            newWarnings.push(`⚠️ Title contains only whitespace.`);
-        }
-
-        if (text && text.length > MAX_TEXT_LENGTH) {
-            newWarnings.push(`⚠️ Content is very long (${text.length} chars). May exceed slide height. Recommended: ${MAX_TEXT_LENGTH} chars or less.`);
-        }
-        
-        if (text && text.trim().length === 0) {
-            newWarnings.push(`⚠️ Content contains only whitespace.`);
-        }
-
-        if (text && text.split('\n').length > MAX_TEXT_LINES) {
-            newWarnings.push(`⚠️ Too many lines (${text.split('\n').length}). May exceed slide height. Recommended: ${MAX_TEXT_LINES} lines or less.`);
-        }
-
-        if (image) {
-            if (image.size > MAX_IMAGE_SIZE) {
-                newWarnings.push(`⚠️ Image size is large (${(image.size / 1024 / 1024).toFixed(2)}MB). May take time to process. Recommended: 5MB or less.`);
-            }
-            
-            if (image.size < MIN_IMAGE_SIZE) {
-                newWarnings.push(`⚠️ Image size is very small (${image.size} bytes). May be corrupted or invalid.`);
-            }
-            
-            // Validate image type
-            const validTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/bmp'];
-            if (!validTypes.includes(image.type)) {
-                newWarnings.push(`⚠️ Image type "${image.type}" may not be supported. Use PNG, JPEG, GIF, or BMP.`);
-            }
-        }
-        
-        // Validate position range
-        const posNum = parseInt(position);
-        if (!isNaN(posNum) && posNum > slideCount + 100) {
-            newWarnings.push(`⚠️ Position ${posNum} is very high. Current presentation has ~${slideCount} slides.`);
-        }
-
-        setWarnings(newWarnings);
-        return newWarnings.length === 0;
-    };
-
-    // Validate on content change
+    // Notify parent of content changes for preview
     useEffect(() => {
-        if (title || text || image) {
-            validateContent();
+        if (onContentChange) {
+            onContentChange({
+                title,
+                content: text,
+                content2: text2,
+                imagePreview
+            });
         }
-    }, [title, text, image]);
+    }, [title, text, text2, imagePreview, onContentChange]);
+
+    // Handle image selection
+    const handleImageChange = (e) => {
+        const selectedImage = e.target.files[0];
+        if (selectedImage) {
+            setImage(selectedImage);
+            
+            // Create preview URL
+            if (imagePreview) {
+                URL.revokeObjectURL(imagePreview);
+            }
+            const previewUrl = URL.createObjectURL(selectedImage);
+            setImagePreview(previewUrl);
+        }
+    };
+
+    // Get layout requirements
+    const getLayoutRequirements = () => {
+        switch (layout) {
+            case 'title_content':
+                return { needsContent: true, needsContent2: false, needsImage: false };
+            case 'title_two_content':
+                return { needsContent: true, needsContent2: true, needsImage: false };
+            case 'title_image_content':
+                return { needsContent: true, needsContent2: false, needsImage: true };
+            case 'title_image':
+                return { needsContent: false, needsContent2: false, needsImage: true };
+            default:
+                return { needsContent: false, needsContent2: false, needsImage: false };
+        }
+    };
+
+    const requirements = getLayoutRequirements();
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -140,15 +112,27 @@ const SlideForm = ({ layout, onSlideAdded, onFileUploaded, initialFile, slideCou
                 return;
             }
             
-            // Validate content based on layout requirements
-            if (!text.trim()) {
-                setError('Content is required');
+            // Validate required fields based on layout
+            if (requirements.needsContent && !text.trim()) {
+                setError('Content is required for this layout');
+                setLoading(false);
+                return;
+            }
+            
+            if (requirements.needsContent2 && !text2.trim()) {
+                setError('Second content is required for this layout');
+                setLoading(false);
+                return;
+            }
+            
+            if (requirements.needsImage && !image) {
+                setError('Image is required for this layout');
                 setLoading(false);
                 return;
             }
             
             // Validate position
-            const positionNum = parseInt(position);
+            const positionNum = position === '' ? totalSlides + slideCount : parseInt(position);
             if (isNaN(positionNum) || positionNum < 0) {
                 setError('Position must be a non-negative number');
                 setLoading(false);
@@ -157,9 +141,14 @@ const SlideForm = ({ layout, onSlideAdded, onFileUploaded, initialFile, slideCou
             
             const formData = new FormData();
             formData.append('file', file);
-            formData.append('layout', layout); // Now using actual layout name from file
+            formData.append('layout', layout);
             formData.append('title', title.trim());
-            formData.append('text', text.trim());
+            if (requirements.needsContent) {
+                formData.append('text', text.trim());
+            }
+            if (requirements.needsContent2) {
+                formData.append('text2', text2.trim());
+            }
             if (image) {
                 formData.append('image', image);
             }
@@ -183,7 +172,7 @@ const SlideForm = ({ layout, onSlideAdded, onFileUploaded, initialFile, slideCou
                 
                 // Extract filename from Content-Disposition header
                 const contentDisposition = response.headers.get('Content-Disposition');
-                let filename = file.name; // Default to original filename
+                let filename = file.name;
                 if (contentDisposition) {
                     const match = contentDisposition.match(/filename="?([^"]+)"?/);
                     if (match && match[1]) {
@@ -198,13 +187,21 @@ const SlideForm = ({ layout, onSlideAdded, onFileUploaded, initialFile, slideCou
                 }
                 
                 setSuccess('Slide added successfully! You can add more slides or download the presentation.');
+                
                 // Reset form fields but keep the file
                 setTitle('');
                 setText('');
+                setText2('');
                 setImage(null);
-                setWarnings([]);
+                setPosition('');
                 
-                // Clear image input
+                // Clear image preview
+                if (imagePreview) {
+                    URL.revokeObjectURL(imagePreview);
+                    setImagePreview(null);
+                }
+                
+                // Clear file inputs
                 const imageInput = document.querySelector('input[type="file"][accept="image/*"]');
                 if (imageInput) {
                     imageInput.value = '';
@@ -230,72 +227,101 @@ const SlideForm = ({ layout, onSlideAdded, onFileUploaded, initialFile, slideCou
     };
 
     return (
-        <form onSubmit={handleSubmit} className="slide-form">
+        <form onSubmit={handleSubmit} className="slide-form-new">
             {error && <div className="alert alert-error">{error}</div>}
             {success && <div className="alert alert-success">{success}</div>}
-            {warnings.length > 0 && (
-                <div className="alert alert-warning">
-                    {warnings.map((warning, idx) => (
-                        <div key={idx}>{warning}</div>
-                    ))}
+            
+            {/* Position Section */}
+            {file && layout && (
+                <div className="form-section">
+                    <h3 className="form-section-title">Choose Slide Position</h3>
+                    <div className="form-group">
+                        <label className="form-label">Position:</label>
+                        <input 
+                            type="number" 
+                            value={position} 
+                            onChange={(e) => setPosition(e.target.value)} 
+                            min="0"
+                            placeholder={`Leave blank to add at end (${totalSlides + slideCount})`}
+                            disabled={loading}
+                            className="text-input"
+                        />
+                        <small className="form-hint">
+                             Enter 0 for beginning, 1 for after first slide, or leave blank to add at end
+                        </small>
+                    </div>
+                </div>
+            )}
+
+            {/* Content Section */}
+            {file && layout && (
+                <div className="form-section">
+                    <h3 className="form-section-title">Enter Slide Content</h3>
+                    
+                    <div className="form-group">
+                        <label className="form-label">Title:</label>
+                        <input 
+                            type="text" 
+                            value={title} 
+                            onChange={(e) => setTitle(e.target.value)} 
+                            placeholder="Enter slide title"
+                            disabled={loading}
+                            className="text-input"
+                        />
+                    </div>
+                    
+                    {requirements.needsContent && (
+                        <div className="form-group">
+                            <label className="form-label">Content {requirements.needsContent2 ? '1' : ''}:</label>
+                            <textarea 
+                                value={text} 
+                                onChange={(e) => setText(e.target.value)} 
+                                placeholder="Enter slide content"
+                                required
+                                disabled={loading}
+                                className="textarea-input"
+                                rows="5"
+                            />
+                        </div>
+                    )}
+                    
+                    {requirements.needsContent2 && (
+                        <div className="form-group">
+                            <label className="form-label">Content 2:</label>
+                            <textarea 
+                                value={text2} 
+                                onChange={(e) => setText2(e.target.value)} 
+                                placeholder="Enter second content"
+                                required
+                                disabled={loading}
+                                className="textarea-input"
+                                rows="5"
+                            />
+                        </div>
+                    )}
+                    
+                    {requirements.needsImage && (
+                        <div className="form-group">
+                            <label className="form-label">Image:</label>
+                            <input 
+                                type="file" 
+                                accept="image/*"
+                                onChange={handleImageChange} 
+                                required
+                                disabled={loading}
+                                className="file-input"
+                            />
+                            {imagePreview && (
+                                <div className="image-preview">
+                                    <img src={imagePreview} alt="Preview" />
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </div>
             )}
             
-            <div className="form-group">
-                <label>Upload PowerPoint File:</label>
-                <input 
-                    type="file" 
-                    accept=".pptx"
-                    onChange={handleFileChange}
-                    required
-                    disabled={loading || initialFile !== null}
-                />
-                {initialFile && <small className="form-hint">📄 Using: {initialFile.name}</small>}
-            </div>
-            <div className="form-group">
-                <label>Slide Position:</label>
-                <input 
-                    type="number" 
-                    value={position} 
-                    onChange={(e) => setPosition(e.target.value)} 
-                    min="0"
-                    placeholder="0 = start, leave for end"
-                    disabled={loading}
-                />
-                <small className="form-hint">
-                    💡 Enter position: 0 = beginning, 1 = after first slide, etc. Leave as {slideCount} to add at end.
-                </small>
-            </div>
-            <div className="form-group">
-                <label>Title (optional):</label>
-                <input 
-                    type="text" 
-                    value={title} 
-                    onChange={(e) => setTitle(e.target.value)} 
-                    placeholder="Enter slide title"
-                    disabled={loading}
-                />
-            </div>
-            <div className="form-group">
-                <label>Content:</label>
-                <textarea 
-                    value={text} 
-                    onChange={(e) => setText(e.target.value)} 
-                    placeholder="Enter slide content"
-                    required
-                    disabled={loading}
-                />
-            </div>
-            <div className="form-group">
-                <label>Image (optional):</label>
-                <input 
-                    type="file" 
-                    accept="image/*"
-                    onChange={(e) => setImage(e.target.files[0])} 
-                    disabled={loading}
-                />
-            </div>
-            <button type="submit" disabled={loading || !layout}>
+            <button type="submit" disabled={loading || !layout || !file} className="submit-button">
                 {loading ? 'Processing...' : 'Add Slide'}
             </button>
         </form>

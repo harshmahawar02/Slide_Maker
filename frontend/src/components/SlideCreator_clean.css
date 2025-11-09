@@ -1,4 +1,4 @@
-﻿/* SlideCreator.css - SAP Design System */
+/* SlideCreator.css - SAP Design System with Two-Column Layout */
 
 .slide-creator-new {
     display: flex;
@@ -40,7 +40,7 @@
     margin: 0 0 16px 0;
     font-size: 1.125rem;
     font-weight: 600;
-    color: #0A6ED1;
+    color: #0854A0;
 }
 
 .status-info {
@@ -56,7 +56,7 @@
     padding: 12px;
     background: linear-gradient(135deg, #E7F3FF 0%, #F0F8FF 100%);
     border-radius: 4px;
-    border-left: 4px solid #0A6ED1;
+    border-left: 4px solid #0854A0;
 }
 
 .status-label {
@@ -68,7 +68,7 @@
 .status-value {
     font-size: 1.25rem;
     font-weight: 700;
-    color: #0A6ED1;
+    color: #0854A0;
 }
 
 .download-section {
@@ -153,6 +153,7 @@
     border-left-color: #F0AB00;
 }
 
+/* Responsive Design */
 @media (max-width: 1400px) {
     .creator-layout {
         gap: 24px;

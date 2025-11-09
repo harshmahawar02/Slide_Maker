@@ -1,0 +1,75 @@
+/* FileUpload.css - SAP Design System */
+
+.file-upload-section {
+    background: #FFFFFF;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    border: 1px solid #E5E5E5;
+}
+
+.upload-title {
+    margin: 0 0 16px 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: #0A6ED1;
+}
+
+.upload-container {
+    position: relative;
+}
+
+.file-input-label {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px;
+    background: linear-gradient(135deg, #F0F8FF 0%, #FFFFFF 100%);
+    border: 2px dashed #0A6ED1;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.file-input-label:hover:not(.disabled) {
+    background: linear-gradient(135deg, #E0F0FF 0%, #F0F8FF 100%);
+    border-color: #0854A0;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(10, 110, 209, 0.15);
+}
+
+.file-input-label.disabled {
+    cursor: not-allowed;
+    opacity: 0.7;
+    border-color: #198d4a;
+    background: linear-gradient(135deg, #E7F8EC 0%, #FFFFFF 100%);
+}
+
+.file-icon {
+    font-size: 2rem;
+    flex-shrink: 0;
+}
+
+.file-prompt {
+    font-size: 0.9375rem;
+    color: #32363A;
+    font-weight: 500;
+}
+
+.file-details {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.file-name {
+    font-size: 0.9375rem;
+    color: #32363A;
+    font-weight: 600;
+}
+
+.file-meta {
+    font-size: 0.8125rem;
+    color: #107E3E;
+    font-weight: 500;
+}
