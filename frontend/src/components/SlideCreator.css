@@ -99,14 +99,14 @@
 }
 
 .btn-download {
-    background: linear-gradient(180deg, #107E3E 0%, #0D6B33 100%);
+    background: #5DC122;
     color: #FFFFFF;
-    box-shadow: 0 2px 8px rgba(16, 126, 62, 0.3);
+    box-shadow: 0 2px 8px rgba(151, 221, 64, 0.3);
 }
 
 .btn-download:hover {
-    background: linear-gradient(180deg, #0D6B33 0%, #107E3E 100%);
-    box-shadow: 0 4px 12px rgba(16, 126, 62, 0.4);
+    background: #5DC122;
+    box-shadow: 0 4px 12px rgba(151, 221, 64, 0.4);
     transform: translateY(-1px);
 }
 

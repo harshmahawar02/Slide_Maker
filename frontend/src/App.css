@@ -17,9 +17,9 @@
 }
 
 .App-header {
-  background: linear-gradient(180deg, #0A6ED1 0%, #3b64b6 100%);
+  background: #F5F6F7;
   padding: 0;
-  color: #FFFFFF;
+  color: #343333;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   position: sticky;
   top: 0;
@@ -76,7 +76,7 @@
 }
 
 .App-footer {
-  background: #434242;
+  background: #5e5c5c;
   color: #FFFFFF;
   padding: 16px 0;
   border-top: 3px solid #F0AB00;
