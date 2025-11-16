@@ -34,7 +34,7 @@ PREDEFINED_LAYOUTS = {
     },
     'title_image_content': {
         'name': 'Title Image and Content',
-        'keywords': ['picture', 'image', 'content', 'caption', 'photo', 'text'],
+        'keywords': ['picture', 'image', 'content', 'photo', 'text'],
         'has_image': True,
         'content_boxes': 1
     },
@@ -370,7 +370,7 @@ def add_slide():
                     xml_slides.clear()
                     for slide in slides:
                         xml_slides.append(slide)
-                    print(f"✓ Slide inserted at position {insert_pos}")
+                    print(f"Slide inserted at position {insert_pos}")
                 else:
                     print(f"! No slides to reposition")
             except AttributeError:
