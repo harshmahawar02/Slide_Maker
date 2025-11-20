@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './SlideForm.css';
 
-const SlideForm = ({ layout, onSlideAdded, onContentChange, initialFile, slideCount, totalSlides }) => {
+const SlideForm = ({ layout, onSlideAdded, onContentChange, initialFile, templatePath, slideCount, totalSlides, onSuccess }) => {
     const [title, setTitle] = useState('');
     const [text, setText] = useState('');
     const [text2, setText2] = useState('');
@@ -11,7 +11,10 @@ const SlideForm = ({ layout, onSlideAdded, onContentChange, initialFile, slideCo
     const [position, setPosition] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
-    const [success, setSuccess] = useState('');
+
+    const hasFileSource = Boolean(file);
+    const hasTemplateSource = Boolean(templatePath);
+    const hasSource = hasFileSource || hasTemplateSource;
     
     // Abort controller for canceling requests
     const abortControllerRef = useRef(null);
@@ -81,6 +84,19 @@ const SlideForm = ({ layout, onSlideAdded, onContentChange, initialFile, slideCo
     };
 
     const requirements = getLayoutRequirements();
+    const defaultPosition = (Number.isFinite(totalSlides) ? totalSlides : 0) + (Number.isFinite(slideCount) ? slideCount : 0);
+
+    const getSourceFilename = () => {
+        if (file && file.name) {
+            return file.name;
+        }
+        if (templatePath) {
+            const segments = templatePath.split(/[\\/]/);
+            const name = segments[segments.length - 1];
+            return name || 'presentation.pptx';
+        }
+        return 'presentation.pptx';
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -91,16 +107,15 @@ const SlideForm = ({ layout, onSlideAdded, onContentChange, initialFile, slideCo
         }
         
         setLoading(true);
-        setError('');
-        setSuccess('');
+    setError('');
 
         // Create new abort controller for this request
         abortControllerRef.current = new AbortController();
 
         try {
-            // Validate file exists
-            if (!file) {
-                setError('Please select a PowerPoint file');
+            // Validate source exists (either file upload or template path)
+            if (!hasSource) {
+                setError('Please select a template or upload a file');
                 setLoading(false);
                 return;
             }
@@ -132,7 +147,7 @@ const SlideForm = ({ layout, onSlideAdded, onContentChange, initialFile, slideCo
             }
             
             // Validate position
-            const positionNum = position === '' ? totalSlides + slideCount : parseInt(position);
+            const positionNum = position === '' ? defaultPosition : parseInt(position, 10);
             if (isNaN(positionNum) || positionNum < 0) {
                 setError('Position must be a non-negative number');
                 setLoading(false);
@@ -140,7 +155,11 @@ const SlideForm = ({ layout, onSlideAdded, onContentChange, initialFile, slideCo
             }
             
             const formData = new FormData();
-            formData.append('file', file);
+            if (file) {
+                formData.append('file', file);
+            } else if (templatePath) {
+                formData.append('templatePath', templatePath);
+            }
             formData.append('layout', layout);
             formData.append('title', title.trim());
             if (requirements.needsContent) {
@@ -172,7 +191,7 @@ const SlideForm = ({ layout, onSlideAdded, onContentChange, initialFile, slideCo
                 
                 // Extract filename from Content-Disposition header
                 const contentDisposition = response.headers.get('Content-Disposition');
-                let filename = file.name;
+                let filename = getSourceFilename();
                 if (contentDisposition) {
                     const match = contentDisposition.match(/filename="?([^"]+)"?/);
                     if (match && match[1]) {
@@ -186,7 +205,9 @@ const SlideForm = ({ layout, onSlideAdded, onContentChange, initialFile, slideCo
                     onSlideAdded(updatedFile, filename);
                 }
                 
-                setSuccess('Slide added successfully! You can add more slides or download the presentation.');
+                if (onSuccess) {
+                    onSuccess('Slide added successfully! You can add more slides or download the presentation.');
+                }
                 
                 // Reset form fields but keep the file
                 setTitle('');
@@ -229,10 +250,9 @@ const SlideForm = ({ layout, onSlideAdded, onContentChange, initialFile, slideCo
     return (
         <form onSubmit={handleSubmit} className="slide-form-new">
             {error && <div className="alert alert-error">{error}</div>}
-            {success && <div className="alert alert-success">{success}</div>}
             
             {/* Position Section */}
-            {file && layout && (
+            {hasSource && layout && (
                 <div className="form-section">
                     <h3 className="form-section-title">Choose Slide Position</h3>
                     <div className="form-group">
@@ -242,7 +262,7 @@ const SlideForm = ({ layout, onSlideAdded, onContentChange, initialFile, slideCo
                             value={position} 
                             onChange={(e) => setPosition(e.target.value)} 
                             min="0"
-                            placeholder={`Leave blank to add at end (${totalSlides + slideCount})`}
+                            placeholder={`Leave blank to add at end (${defaultPosition})`}
                             disabled={loading}
                             className="text-input"
                         />
@@ -254,7 +274,7 @@ const SlideForm = ({ layout, onSlideAdded, onContentChange, initialFile, slideCo
             )}
 
             {/* Content Section */}
-            {file && layout && (
+            {hasSource && layout && (
                 <div className="form-section">
                     <h3 className="form-section-title">Enter Slide Content</h3>
                     
@@ -321,7 +341,7 @@ const SlideForm = ({ layout, onSlideAdded, onContentChange, initialFile, slideCo
                 </div>
             )}
             
-            <button type="submit" disabled={loading || !layout || !file} className="submit-button">
+            <button type="submit" disabled={loading || !layout || !hasSource} className="submit-button">
                 {loading ? 'Processing...' : 'Add Slide'}
             </button>
         </form>

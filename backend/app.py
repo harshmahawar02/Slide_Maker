@@ -6,9 +6,14 @@ from pptx.enum.shapes import PP_PLACEHOLDER
 from pptx.enum.text import PP_ALIGN
 from pptx.enum.dml import MSO_THEME_COLOR
 from pptx.dml.color import RGBColor
+from pptx.oxml.xmlchemy import OxmlElement
+from pptx.oxml.ns import qn
 import io
 import traceback
 import os
+import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime
 
 app = Flask(__name__)
 CORS(app, expose_headers='Content-Disposition')
@@ -46,6 +51,37 @@ PREDEFINED_LAYOUTS = {
         'prefer_simple': True  # Prefer simpler layouts
     }
 }
+
+
+def remove_bullets(paragraph):
+    """Ensure a paragraph has no bullets."""
+    try:
+        pPr = paragraph._p.get_or_add_pPr()
+        # Remove any existing bullet definitions
+        for child in list(pPr):
+            if child.tag in (
+                qn('a:buNone'),
+                qn('a:buChar'),
+                qn('a:buAutoNum'),
+                qn('a:buBlip'),
+            ):
+                pPr.remove(child)
+        pPr.append(OxmlElement('a:buNone'))
+    except Exception:
+        pass
+    paragraph.level = 0
+
+
+def populate_text_frame(text_frame, text):
+    """Fill a text frame with plain text (no bullets)."""
+    text_frame.clear()
+    text_frame.word_wrap = True
+    lines = text.split('\n') if text is not None else ['']
+    for idx, line in enumerate(lines):
+        paragraph = text_frame.paragraphs[0] if idx == 0 else text_frame.add_paragraph()
+        paragraph.text = line.strip()
+        paragraph.alignment = PP_ALIGN.LEFT
+        remove_bullets(paragraph)
 
 def validate_file_size(file_storage, max_size, file_type="File"):
     """Validate file size before processing"""
@@ -254,23 +290,23 @@ def debug_layouts():
 @app.route('/api/add-slide', methods=['POST'])
 def add_slide():
     try:
-        # Validate file upload
-        if 'file' not in request.files:
-            return jsonify({'error': 'No PowerPoint file uploaded'}), 400
-        
-        file = request.files['file']
-        
-        if file.filename == '':
-            return jsonify({'error': 'No file selected'}), 400
-        
-        if not file.filename.endswith('.pptx'):
-            return jsonify({'error': 'File must be a .pptx PowerPoint file'}), 400
-        
-        # Validate file size
-        try:
-            validate_file_size(file, MAX_FILE_SIZE, "PowerPoint file")
-        except ValueError as e:
-            return jsonify({'error': str(e)}), 400
+        # Accept either uploaded file or a local template path
+        template_path = request.form.get('templatePath')
+        uploaded_file = request.files.get('file') if 'file' in request.files else None
+
+        if not template_path and not uploaded_file:
+            return jsonify({'error': 'Provide either a templatePath or upload a .pptx file'}), 400
+
+        if uploaded_file:
+            if uploaded_file.filename == '':
+                return jsonify({'error': 'No file selected'}), 400
+            if not uploaded_file.filename.endswith('.pptx'):
+                return jsonify({'error': 'File must be a .pptx PowerPoint file'}), 400
+            # Validate file size
+            try:
+                validate_file_size(uploaded_file, MAX_FILE_SIZE, "PowerPoint file")
+            except ValueError as e:
+                return jsonify({'error': str(e)}), 400
             
         # Get form data
         layout_type = request.form.get('layout', '').strip()
@@ -311,7 +347,16 @@ def add_slide():
 
         # Load presentation
         try:
-            prs = Presentation(file)
+            if template_path:
+                if not os.path.isfile(template_path):
+                    return jsonify({'error': f'Template not found at path: {template_path}'}), 400
+                if not template_path.lower().endswith('.pptx'):
+                    return jsonify({'error': 'templatePath must point to a .pptx file'}), 400
+                prs = Presentation(template_path)
+                base_filename = os.path.basename(template_path)
+            else:
+                prs = Presentation(uploaded_file)
+                base_filename = uploaded_file.filename
         except Exception as e:
             return jsonify({'error': f'Invalid or corrupted PowerPoint file: {str(e)}'}), 400
 
@@ -406,17 +451,11 @@ def add_slide():
                 # Use first two placeholders
                 try:
                     tf1 = content_placeholders[0].text_frame
-                    tf1.clear()
-                    p1 = tf1.paragraphs[0]
-                    p1.text = text
-                    p1.alignment = PP_ALIGN.LEFT
+                    populate_text_frame(tf1, text)
                     print(f"✓ Content 1: '{text[:50]}...'")
                     
                     tf2 = content_placeholders[1].text_frame
-                    tf2.clear()
-                    p2 = tf2.paragraphs[0]
-                    p2.text = text2
-                    p2.alignment = PP_ALIGN.LEFT
+                    populate_text_frame(tf2, text2)
                     print(f"✓ Content 2: '{text2[:50]}...'")
                 except Exception as e:
                     print(f"! Error setting two-content: {str(e)}")
@@ -426,16 +465,12 @@ def add_slide():
                     # Left textbox
                     txBox1 = new_slide.shapes.add_textbox(Inches(0.5), Inches(1.8), Inches(4.2), Inches(5))
                     tf1 = txBox1.text_frame
-                    p1 = tf1.paragraphs[0]
-                    p1.text = text
-                    p1.alignment = PP_ALIGN.LEFT
+                    populate_text_frame(tf1, text)
                     
                     # Right textbox
                     txBox2 = new_slide.shapes.add_textbox(Inches(5.2), Inches(1.8), Inches(4.2), Inches(5))
                     tf2 = txBox2.text_frame
-                    p2 = tf2.paragraphs[0]
-                    p2.text = text2
-                    p2.alignment = PP_ALIGN.LEFT
+                    populate_text_frame(tf2, text2)
                     print(f"✓ Two content boxes created (fallback)")
                 except Exception as e:
                     print(f"! Error creating two textboxes: {str(e)}")
@@ -455,24 +490,14 @@ def add_slide():
                         # Found content placeholder - use it
                         tf = shape.text_frame
                         
-                        # Validate text frame is writable
                         if not tf:
                             print(f"! Placeholder has no text frame")
                             continue
-                        
-                        tf.clear()
-                        
-                        # Add text with proper formatting
-                        p = tf.paragraphs[0]
-                        p.text = text
-                        p.alignment = PP_ALIGN.LEFT
-                        p.level = 0
-                        
-                        # Adjust text frame margins for better positioning
+
+                        populate_text_frame(tf, text)
                         tf.margin_left = Inches(0.1)
                         tf.margin_top = Inches(0.1)
-                        tf.word_wrap = True
-                        
+
                         print(f"✓ Content: '{text[:50]}...' (in placeholder)")
                         content_added = True
                         break
@@ -496,11 +521,7 @@ def add_slide():
                     
                     txBox = new_slide.shapes.add_textbox(left, top, width, height)
                     tf = txBox.text_frame
-                    p = tf.paragraphs[0]
-                    p.text = text
-                    p.alignment = PP_ALIGN.LEFT
-                    
-                    tf.word_wrap = True
+                    populate_text_frame(tf, text)
                     tf.margin_left = Inches(0)
                     tf.margin_top = Inches(0)
                     
@@ -581,7 +602,7 @@ def add_slide():
             return jsonify({'error': f'Failed to save presentation: {str(e)}'}), 500
 
         # Create a new filename for the modified presentation
-        base_name = file.filename.rsplit('.', 1)[0]
+        base_name = base_filename.rsplit('.', 1)[0]
         new_filename = f"{base_name}_updated.pptx"
 
         return send_file(
@@ -608,30 +629,156 @@ def health_check():
 def get_slide_count():
     """Get the number of slides in uploaded presentation"""
     try:
-        if 'file' not in request.files:
-            return jsonify({'error': 'No PowerPoint file uploaded'}), 400
-        
-        file = request.files['file']
-        
-        if file.filename == '':
-            return jsonify({'error': 'No file selected'}), 400
-        
-        if not file.filename.endswith('.pptx'):
-            return jsonify({'error': 'File must be a .pptx PowerPoint file'}), 400
-        
-        # Load presentation
-        try:
-            prs = Presentation(file)
-        except Exception as e:
-            return jsonify({'error': f'Invalid PowerPoint file: {str(e)}'}), 400
+        # Support both uploaded file and templatePath via JSON
+        template_path = None
+        if request.is_json:
+            body = request.get_json(silent=True) or {}
+            template_path = body.get('templatePath')
+
+        if template_path:
+            if not os.path.isfile(template_path):
+                return jsonify({'error': f'Template not found at path: {template_path}'}), 400
+            if not template_path.lower().endswith('.pptx'):
+                return jsonify({'error': 'templatePath must point to a .pptx file'}), 400
+            try:
+                prs = Presentation(template_path)
+                filename = os.path.basename(template_path)
+            except Exception as e:
+                return jsonify({'error': f'Invalid PowerPoint file: {str(e)}'}), 400
+        else:
+            if 'file' not in request.files:
+                return jsonify({'error': 'No PowerPoint file uploaded'}), 400
+            file = request.files['file']
+            if file.filename == '':
+                return jsonify({'error': 'No file selected'}), 400
+            if not file.filename.endswith('.pptx'):
+                return jsonify({'error': 'File must be a .pptx PowerPoint file'}), 400
+            try:
+                prs = Presentation(file)
+                filename = file.filename
+            except Exception as e:
+                return jsonify({'error': f'Invalid PowerPoint file: {str(e)}'}), 400
         
         return jsonify({
             'total_slides': len(prs.slides),
-            'filename': file.filename
+            'filename': filename
         }), 200
         
     except Exception as e:
         print(f"Error in get_slide_count: {str(e)}")
+        print(traceback.format_exc())
+        return jsonify({'error': f'Server error: {str(e)}'}), 500
+
+# NEW: List PPT/PPTX files with metadata from a given folder (threaded)
+@app.route('/api/list-ppts', methods=['POST'])
+def list_ppts():
+    try:
+        if not request.is_json:
+            return jsonify({'error': 'Expected JSON body with {"path": "C:/..."}'}), 400
+        body = request.get_json(silent=True) or {}
+        folder = body.get('path')
+        include_details = bool(body.get('includeDetails', True))
+
+        if not folder:
+            return jsonify({'error': 'Path is required'}), 400
+        if not os.path.isdir(folder):
+            return jsonify({'error': f'Not a directory: {folder}'}), 400
+
+        entries = []
+        errors = []
+        try:
+            for name in os.listdir(folder):
+                full = os.path.join(folder, name)
+                if not os.path.isfile(full):
+                    continue
+                ext = os.path.splitext(name)[1].lower()
+                if ext not in ('.ppt', '.pptx'):
+                    continue
+                stat = os.stat(full)
+                entries.append({
+                    'name': name,
+                    'fullPath': full,
+                    'extension': ext,
+                    'sizeBytes': stat.st_size,
+                    'modifiedTime': datetime.fromtimestamp(stat.st_mtime).isoformat(),
+                    'createdTime': datetime.fromtimestamp(stat.st_ctime).isoformat(),
+                })
+        except Exception as e:
+            return jsonify({'error': f'Failed to read directory: {str(e)}'}), 500
+
+        # Optionally compute slide counts in threads (non-blocking-ish with timeout per file)
+        if include_details and entries:
+            def get_slide_count_for(path):
+                try:
+                    if path.lower().endswith('.pptx'):
+                        prs = Presentation(path)
+                        return len(prs.slides)
+                    else:
+                        # .ppt not supported by python-pptx; return None
+                        return None
+                except Exception:
+                    return None
+
+            with ThreadPoolExecutor(max_workers=min(8, len(entries))) as executor:
+                future_map = {executor.submit(get_slide_count_for, e['fullPath']): e for e in entries}
+                for fut in as_completed(future_map, timeout=10):
+                    e = future_map.get(fut)
+                    try:
+                        count = fut.result(timeout=0)
+                    except Exception:
+                        count = None
+                    e['slides'] = count
+
+        return jsonify({'files': entries, 'errors': errors}), 200
+    except Exception as e:
+        print('Error in list_ppts:', e)
+        print(traceback.format_exc())
+        return jsonify({'error': f'Server error: {str(e)}'}), 500
+
+# NEW: Lightweight preview - extract text content per slide
+@app.route('/api/preview-texts', methods=['POST'])
+def preview_texts():
+    try:
+        if not request.is_json:
+            return jsonify({'error': 'Expected JSON body with {"templatePath": "C:/...pptx"}'}), 400
+        body = request.get_json(silent=True) or {}
+        template_path = body.get('templatePath')
+        max_slides = int(body.get('maxSlides', 50))
+        if not template_path:
+            return jsonify({'error': 'templatePath is required'}), 400
+        if not os.path.isfile(template_path):
+            return jsonify({'error': f'File not found: {template_path}'}), 400
+        if not template_path.lower().endswith('.pptx'):
+            return jsonify({'error': 'Only .pptx is supported for preview'}), 400
+
+        prs = Presentation(template_path)
+        slides = []
+        for idx, slide in enumerate(prs.slides):
+            if idx >= max_slides:
+                break
+            title_text = ''
+            try:
+                if slide.shapes.title and slide.shapes.title.text:
+                    title_text = slide.shapes.title.text
+            except Exception:
+                title_text = ''
+
+            texts = []
+            for shape in slide.shapes:
+                try:
+                    if hasattr(shape, 'text') and shape.text:
+                        texts.append(shape.text)
+                except Exception:
+                    continue
+            slides.append({
+                'index': idx,
+                'title': title_text,
+                'texts': texts
+            })
+
+        return jsonify({'totalSlides': len(prs.slides), 'slides': slides}), 200
+    except Exception as e:
+        print('Error in preview_texts:', e)
         print(traceback.format_exc())
         return jsonify({'error': f'Server error: {str(e)}'}), 500
 

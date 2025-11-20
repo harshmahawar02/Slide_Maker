@@ -12,7 +12,9 @@ const FileUpload = ({ onFileUploaded, currentFile, totalSlides }) => {
     };
 
     const handleClick = () => {
-        if (currentFile === null && fileInputRef.current) {
+        if (fileInputRef.current) {
+            // Reset value so selecting the same file twice still triggers change
+            fileInputRef.current.value = '';
             fileInputRef.current.click();
         }
     };
@@ -25,16 +27,15 @@ const FileUpload = ({ onFileUploaded, currentFile, totalSlides }) => {
                     type="file" 
                     accept=".pptx"
                     onChange={handleFileChange}
-                    disabled={currentFile !== null}
                     className="file-input"
                     ref={fileInputRef}
                     style={{ display: 'none' }}
                 />
                 <div 
-                    className={`file-input-label ${currentFile ? 'disabled' : ''}`}
+                    className="file-input-label"
                     onClick={handleClick}
                     role="button"
-                    tabIndex={currentFile ? -1 : 0}
+                    tabIndex={0}
                 >
                     {currentFile ? (
                         <>
@@ -42,8 +43,9 @@ const FileUpload = ({ onFileUploaded, currentFile, totalSlides }) => {
                             <div className="file-details">
                                 <span className="file-name">{currentFile.name}</span>
                                 {totalSlides > 0 && (
-                                    <span className="file-meta">{totalSlides} slides found</span>
+                                    <span className="file-meta">{totalSlides} slides in deck</span>
                                 )}
+                                <span className="file-meta">Click to replace file</span>
                             </div>
                         </>
                     ) : (
