@@ -14,6 +14,32 @@ import os
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
+import sys
+import tempfile
+import json
+import zipfile
+import shutil
+
+# Add the backend_Mass_Update directory to Python path for mass update utilities
+BACKEND_MASS_UPDATE_PATH = os.path.join(os.path.dirname(__file__), 'backend_Mass_Update')
+if BACKEND_MASS_UPDATE_PATH not in sys.path:
+    sys.path.insert(0, BACKEND_MASS_UPDATE_PATH)
+
+# Import Mass Update utilities (from backend_Mass_Update/utils/)
+from utils.ppt_processor import update_ppt_text
+
+# Import Excel parser utilities using importlib to avoid naming conflicts
+import importlib.util
+EXCEL_PARSER_PATH = os.path.join(os.path.dirname(__file__), 'utils', 'excel_parser.py')
+spec = importlib.util.spec_from_file_location("excel_parser_module", EXCEL_PARSER_PATH)
+excel_parser = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(excel_parser)
+
+# Extract functions from the module
+get_filter_options = excel_parser.get_filter_options
+get_folder_by_filters = excel_parser.get_folder_by_filters
+convert_sharepoint_to_local_path = excel_parser.convert_sharepoint_to_local_path
+get_excel_data = excel_parser.get_excel_data
 
 app = Flask(__name__)
 CORS(app, expose_headers='Content-Disposition')
@@ -781,6 +807,350 @@ def preview_texts():
         print('Error in preview_texts:', e)
         print(traceback.format_exc())
         return jsonify({'error': f'Server error: {str(e)}'}), 500
+
+@app.route('/api/mass-update/process', methods=['POST'])
+def mass_update_process():
+    try:
+        # Get either uploaded files or file paths
+        files = request.files.getlist('files')
+        file_paths_json = request.form.get('filePaths')
+        
+        # Parse file paths if provided
+        file_paths = []
+        if file_paths_json:
+            try:
+                file_paths = json.loads(file_paths_json)
+            except json.JSONDecodeError:
+                return jsonify({'error': 'Invalid file paths format'}), 400
+        
+        # Check if we have either files or file paths
+        if (not files or len(files) == 0) and (not file_paths or len(file_paths) == 0):
+            return jsonify({'error': 'No files provided'}), 400
+        
+        # Get replacements
+        replacements_json = request.form.get('replacements')
+        if not replacements_json:
+            return jsonify({'error': 'No replacements provided'}), 400
+        
+        try:
+            replacements = json.loads(replacements_json)
+        except json.JSONDecodeError:
+            return jsonify({'error': 'Invalid replacements format'}), 400
+        
+        if not replacements or len(replacements) == 0:
+            return jsonify({'error': 'No replacement rules defined'}), 400
+        
+        # Create a temporary directory for processing
+        temp_dir = tempfile.mkdtemp()
+        processed_files = []
+        
+        # Determine total count
+        total_count = len(files) if files else len(file_paths)
+        
+        results = {
+            'total': total_count,
+            'updated': 0,
+            'unchanged': 0,
+            'failed': 0,
+            'errors': []
+        }
+        
+        try:
+            # Process uploaded files
+            if files and len(files) > 0:
+                for file in files:
+                    try:
+                        # Save uploaded file temporarily
+                        temp_input_path = os.path.join(temp_dir, file.filename)
+                        file.save(temp_input_path)
+                        
+                        # Process the file
+                        updated = update_ppt_text(temp_input_path, replacements)
+                        
+                        if updated:
+                            results['updated'] += 1
+                            processed_files.append((file.filename, temp_input_path))
+                        else:
+                            results['unchanged'] += 1
+                            processed_files.append((file.filename, temp_input_path))
+                        
+                    except Exception as e:
+                        results['failed'] += 1
+                        results['errors'].append(f"{file.filename}: {str(e)}")
+                        print(f"Error processing {file.filename}: {e}")
+            
+            # Process files from paths
+            elif file_paths and len(file_paths) > 0:
+                for file_path in file_paths:
+                    try:
+                        if not os.path.exists(file_path):
+                            results['failed'] += 1
+                            results['errors'].append(f"{os.path.basename(file_path)}: File not found")
+                            continue
+                        
+                        # Create a copy of the file in temp directory
+                        filename = os.path.basename(file_path)
+                        temp_input_path = os.path.join(temp_dir, filename)
+                        shutil.copy2(file_path, temp_input_path)
+                        
+                        # Process the file
+                        updated = update_ppt_text(temp_input_path, replacements)
+                        
+                        if updated:
+                            results['updated'] += 1
+                            processed_files.append((filename, temp_input_path))
+                        else:
+                            results['unchanged'] += 1
+                            processed_files.append((filename, temp_input_path))
+                        
+                    except Exception as e:
+                        results['failed'] += 1
+                        filename = os.path.basename(file_path)
+                        results['errors'].append(f"{filename}: {str(e)}")
+                        print(f"Error processing {file_path}: {e}")
+            
+            # Create ZIP file in memory
+            zip_buffer = io.BytesIO()
+            with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+                for filename, filepath in processed_files:
+                    zip_file.write(filepath, filename)
+                
+                # Add a summary file
+                summary = f"""Mass Update Summary
+Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+
+Total Files: {results['total']}
+Updated: {results['updated']}
+Unchanged: {results['unchanged']}
+Failed: {results['failed']}
+
+Replacements Applied:
+"""
+                for find, replace in replacements.items():
+                    summary += f"  '{find}' → '{replace}'\n"
+                
+                if results['errors']:
+                    summary += "\nErrors:\n"
+                    for error in results['errors']:
+                        summary += f"  - {error}\n"
+                
+                zip_file.writestr('_SUMMARY.txt', summary)
+            
+            # Clean up temporary directory
+            shutil.rmtree(temp_dir, ignore_errors=True)
+            
+            # Send ZIP file
+            zip_buffer.seek(0)
+            return send_file(
+                zip_buffer,
+                mimetype='application/zip',
+                as_attachment=True,
+                download_name=f'processed_presentations_{datetime.now().strftime("%Y%m%d_%H%M%S")}.zip'
+            )
+        
+        except Exception as e:
+            # Clean up on error
+            shutil.rmtree(temp_dir, ignore_errors=True)
+            raise e
+    
+    except Exception as e:
+        print(f"Error in mass update: {e}")
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+# ============================================================================
+# SharePoint Filter API Endpoints
+# ============================================================================
+
+@app.route('/api/sharepoint/filter-options', methods=['GET'])
+def get_sharepoint_filter_options():
+    """
+    Get available filter options for SharePoint folders.
+    Supports cascading filters based on previous selections.
+    
+    Query params:
+        subSolution (optional): Filter Service Type options
+        serviceType (optional): Filter Session Description options
+    """
+    try:
+        sub_solution = request.args.get('subSolution')
+        service_type = request.args.get('serviceType')
+        
+        options = get_filter_options(
+            sub_solution=sub_solution,
+            service_type=service_type
+        )
+        
+        return jsonify(options), 200
+        
+    except FileNotFoundError as e:
+        return jsonify({'error': str(e)}), 404
+    except Exception as e:
+        print(f"Error getting filter options: {e}")
+        traceback.print_exc()
+        return jsonify({'error': f'Failed to load filter options: {str(e)}'}), 500
+
+
+@app.route('/api/sharepoint/get-folder', methods=['POST'])
+def get_sharepoint_folder():
+    """
+    Get local folder path based on selected filters.
+    
+    Request body:
+        {
+            "subSolution": "...",
+            "serviceType": "...",
+            "sessionDescription": "..."
+        }
+    
+    Response:
+        {
+            "folderPath": "C:\\Users\\...\\OneDrive - SAP\\...\\EN",
+            "sharePointUrl": "https://sap.sharepoint.com/..."
+        }
+    """
+    try:
+        if not request.is_json:
+            return jsonify({'error': 'Request must be JSON'}), 400
+        
+        data = request.get_json()
+        sub_solution = data.get('subSolution')
+        service_type = data.get('serviceType')
+        session_description = data.get('sessionDescription')
+        
+        # Validate required fields
+        if not all([sub_solution, service_type, session_description]):
+            return jsonify({
+                'error': 'Missing required fields: subSolution, serviceType, sessionDescription'
+            }), 400
+        
+        # Get SharePoint URL from Excel
+        print(f"DEBUG API: Getting folder for: {sub_solution} / {service_type} / {session_description}")
+        sharepoint_url = get_folder_by_filters(
+            sub_solution=sub_solution,
+            service_type=service_type,
+            session_description=session_description
+        )
+        
+        print(f"DEBUG API: SharePoint URL received: {sharepoint_url}")
+        
+        if not sharepoint_url:
+            return jsonify({
+                'error': 'No folder found matching the selected filters. Please try different filter combinations.'
+            }), 404
+        
+        # Convert to local OneDrive path with /EN subfolder
+        print(f"DEBUG API: Converting to local path...")
+        local_path = convert_sharepoint_to_local_path(sharepoint_url)
+        print(f"DEBUG API: Local path result: {local_path}")
+        
+        if not local_path:
+            return jsonify({
+                'error': 'Could not determine local OneDrive path. Please ensure SharePoint folder is synced.'
+            }), 500
+        
+        # Check if folder exists
+        folder_exists = os.path.isdir(local_path)
+        
+        return jsonify({
+            'folderPath': local_path,
+            'sharePointUrl': sharepoint_url,
+            'exists': folder_exists
+        }), 200
+        
+    except FileNotFoundError as e:
+        return jsonify({'error': str(e)}), 404
+    except Exception as e:
+        print(f"Error getting folder: {e}")
+        traceback.print_exc()
+        return jsonify({'error': f'Failed to get folder: {str(e)}'}), 500
+
+
+@app.route('/api/sharepoint/refresh-cache', methods=['POST'])
+def refresh_sharepoint_cache():
+    """Force refresh of cached Excel data."""
+    try:
+        get_excel_data(force_refresh=True)
+        return jsonify({'message': 'Cache refreshed successfully'}), 200
+    except Exception as e:
+        print(f"Error refreshing cache: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/sharepoint/debug', methods=['GET'])
+def debug_sharepoint_setup():
+    """Debug endpoint to check SharePoint Excel setup."""
+    try:
+        from pathlib import Path
+        import glob
+        
+        downloads_path = Path.home() / "Downloads"
+        pattern = str(downloads_path / "query*.iqy")
+        files = glob.glob(pattern)
+        
+        debug_info = {
+            'downloadsPath': str(downloads_path),
+            'downloadsExists': downloads_path.exists(),
+            'queryFilesFound': len(files),
+            'queryFiles': [os.path.basename(f) for f in files],
+            'latestFile': max(files, key=os.path.getmtime) if files else None
+        }
+        
+        if files:
+            latest_file = max(files, key=os.path.getmtime)
+            try:
+                # Try to read and show first few lines
+                with open(latest_file, 'r', encoding='utf-8', errors='ignore') as f:
+                    content = f.read(500)
+                debug_info['filePreview'] = content
+                
+                # Try to parse
+                df = get_excel_data(force_refresh=True)
+                debug_info['parsedSuccessfully'] = True
+                debug_info['rowCount'] = len(df)
+                debug_info['columns'] = list(df.columns)
+            except Exception as e:
+                debug_info['parseError'] = str(e)
+        
+        return jsonify(debug_info), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/download-ppt', methods=['POST'])
+def download_ppt():
+    """Download a PowerPoint file directly."""
+    try:
+        data = request.get_json()
+        file_path = data.get('filePath')
+        
+        if not file_path:
+            return jsonify({'error': 'File path is required'}), 400
+        
+        # Security check: ensure the file exists and is a valid path
+        if not os.path.exists(file_path):
+            return jsonify({'error': 'File not found'}), 404
+        
+        # Check if it's a PPT file
+        if not file_path.lower().endswith(('.ppt', '.pptx')):
+            return jsonify({'error': 'Invalid file type. Only PPT/PPTX files are allowed.'}), 400
+        
+        # Get the filename for the download
+        filename = os.path.basename(file_path)
+        
+        # Send the file
+        return send_file(
+            file_path,
+            as_attachment=True,
+            download_name=filename,
+            mimetype='application/vnd.openxmlformats-officedocument.presentationml.presentation'
+        )
+        
+    except Exception as e:
+        print(f"Error downloading file: {e}")
+        traceback.print_exc()
+        return jsonify({'error': f'Failed to download file: {str(e)}'}), 500
+
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)

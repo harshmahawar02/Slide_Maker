@@ -19,7 +19,6 @@
     background: #F5F5F5;
     border-radius: 4px;
     padding: 16px;
-    min-height: 300px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -29,7 +28,6 @@
 .preview-slide {
     background: #fff;
     width: 100%;
-    max-width: 640px;
     aspect-ratio: 16 / 9;
     border: 1px solid #ccc;
     border-radius: 2px;

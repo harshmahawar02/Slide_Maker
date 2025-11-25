@@ -1,31 +1,44 @@
 ﻿/* SlideCreator.css - SAP Design System */
 
 .slide-creator-new {
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-    padding-top: 8px;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: var(--spacing-xl);
 }
 
 .creator-layout {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 32px;
+    grid-template-columns: 50% 50%;
+    gap: var(--spacing-xl);
     align-items: start;
 }
 
 .creator-left {
     display: flex;
     flex-direction: column;
-    gap: 24px;
+    gap: var(--spacing-lg);
+}
+
+.creator-left > * {
+    background: white;
+    border-radius: var(--radius-md);
+    padding: var(--spacing-xl);
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1);
 }
 
 .creator-right {
     display: flex;
     flex-direction: column;
-    gap: 24px;
+    gap: var(--spacing-lg);
     position: sticky;
     top: 20px;
+}
+
+.creator-right > * {
+    background: white;
+    border-radius: var(--radius-md);
+    padding: var(--spacing-xl);
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1);
 }
 
 .success-modal-backdrop {
@@ -255,16 +268,21 @@
 
 @media (max-width: 768px) {
     .slide-creator-new {
-        gap: 16px;
+        padding: var(--spacing-md);
     }
     
     .creator-layout {
-        gap: 20px;
+        gap: var(--spacing-md);
+    }
+    
+    .creator-left > *,
+    .creator-right > * {
+        padding: var(--spacing-lg);
     }
     
     .session-status,
     .download-section {
-        padding: 16px;
+        padding: var(--spacing-lg);
     }
     
     .status-title {

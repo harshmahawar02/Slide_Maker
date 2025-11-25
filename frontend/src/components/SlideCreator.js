@@ -5,7 +5,7 @@ import SlidePreview from './SlidePreview';
 import FileUpload from './FileUpload';
 import './SlideCreator.css';
 
-const SlideCreator = ({ templatePath, onBack }) => {
+const SlideCreator = ({ templatePath, onClose, isModal = false }) => {
     const [layout, setLayout] = useState('');
     const [currentFile, setCurrentFile] = useState(null);
     const [currentTemplatePath, setCurrentTemplatePath] = useState(templatePath || null);
@@ -27,6 +27,15 @@ const SlideCreator = ({ templatePath, onBack }) => {
 
     const objectURLsRef = useRef([]);
     const successDelayRef = useRef(null);
+
+    const handleClose = () => {
+        if (onClose) {
+            const message = slideCount > 0 
+                ? `Successfully added ${slideCount} slide${slideCount !== 1 ? 's' : ''} to presentation`
+                : null;
+            onClose(message);
+        }
+    };
 
     useEffect(() => {
         const checkBackend = async () => {
@@ -256,6 +265,7 @@ const SlideCreator = ({ templatePath, onBack }) => {
 
     return (
         <div className="slide-creator-new">
+
             {isSuccessModalVisible && successMessage && (
                 <div className="success-modal-backdrop">
                     <div
@@ -305,13 +315,6 @@ const SlideCreator = ({ templatePath, onBack }) => {
                                         )}
                                     </div>
                                 </div>
-                                {onBack && (
-                                    <div className="template-summary-actions">
-                                        <button className="btn-reset" onClick={onBack}>
-                                            Back to file browser
-                                        </button>
-                                    </div>
-                                )}
                             </div>
                         </div>
                     )}
